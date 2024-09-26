@@ -3,11 +3,14 @@ import { useState, useEffect } from 'react'
 const Login = ({ login })=> {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  
 
   const submit = ev => {
     ev.preventDefault();
     login({ username, password });
   }
+
+  
   return (
     <form onSubmit={ submit }>
       <input value={ username } placeholder='username' onChange={ ev=> setUsername(ev.target.value)}/>
@@ -17,13 +20,46 @@ const Login = ({ login })=> {
   );
 }
 
+
+const Register = ({ register }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
+  const submit = ev => {
+    ev.preventDefault();
+    register({ username, password });
+  };
+
+  return (
+    <form onSubmit={submit}>
+      <input
+        value={username}
+        placeholder='username'
+        onChange={ev => setUsername(ev.target.value)}
+      />
+      <input
+        value={password}
+        type='password'
+        placeholder='password'
+        onChange={ev => setPassword(ev.target.value)}
+      />
+      <button disabled={!username || !password}>Register</button>
+    </form>
+  );
+};
+
+
 function App() {
   const [auth, setAuth] = useState({});
   const [products, setProducts] = useState([]);
   const [favorites, setFavorites] = useState([]);
+  
 
-  useEffect(()=> {
-    attemptLoginWithToken();
+  useEffect(() => {
+    const token = window.localStorage.getItem('token');
+    if (token) {
+      attemptLoginWithToken();
+    }
   }, []);
 
   const attemptLoginWithToken = async()=> {
@@ -56,7 +92,12 @@ function App() {
 
   useEffect(()=> {
     const fetchFavorites = async()=> {
-      const response = await fetch(`/api/users/${auth.id}/favorites`);
+      const token = window.localStorage.getItem('token');
+      const response = await fetch(`/api/users/${auth.id}/favorites`, {
+        headers:{
+          authorization: token,
+        }
+      });
       const json = await response.json();
       if(response.ok){
         setFavorites(json);
@@ -89,12 +130,32 @@ function App() {
     }
   };
 
+  const register = async (credentials) => {
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const json = await response.json();
+    if (response.ok) {
+      window.localStorage.setItem('token', json.token);
+      attemptLoginWithToken();
+    } else {
+      console.log(json);
+    }
+  };
+
+
   const addFavorite = async(product_id)=> {
     const response = await fetch(`/api/users/${auth.id}/favorites`, {
       method: 'POST',
       body: JSON.stringify({ product_id }),
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        authorization: window.localStorage.getItem('token'),
       }
     });
 
@@ -110,6 +171,9 @@ function App() {
   const removeFavorite = async(id)=> {
     const response = await fetch(`/api/users/${auth.id}/favorites/${id}`, {
       method: 'DELETE',
+      headers: {
+        authorization: window.localStorage.getItem('token'),
+      },
     });
 
     if(response.ok){
@@ -128,7 +192,7 @@ function App() {
   return (
     <>
       {
-        !auth.id ? <Login login={ login }/> : <button onClick={ logout }>Logout { auth.username }</button>
+        !auth.id ? (<><Login login={ login }/> <Register register={register}/></>): <button onClick={ logout }>Logout { auth.username }</button>
       }
       <ul>
         {
